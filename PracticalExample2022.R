@@ -366,11 +366,12 @@ aircomtra<- c(0.2, 0.3, 0.5, 0.5, 0.5, 0.5, 0.6, 0.6 ,0.7 ,0.7 ,0.7 ,0.8,
               5.0, 5.4, 5.4, 7.0, 7.5, 8.8, 9.0, 10.3, 22.0, 24.5)
 
 graphsnstuff <- function(x,B=1,PvalAIC="p",namex="x",bsCI=FALSE,alpha=0.05,printPDF=TRUE,xlimmax=5){
-  tim<-format(Sys.time(), "%Y-%m-%d.%Hh%Mm%Ss")
-  varnm<-deparse(substitute(x))
-  tim <- paste0(varnm,".",tim)
+  n     <- length(x)
+  tim   <- format(Sys.time(), "%Y-%m-%d.%Hh%Mm%Ss")
+  varnm <- deparse(substitute(x))
+  tim   <- paste0(varnm,".",tim)
   
-  est <- list()
+  est   <- list()
   
   est[[paste0("MLE",varnm)]]           <- MLEx           <- MLE(x)
   est[[paste0("MLE.b",varnm)]]         <- MLE.bx         <- MLE.b(x)
@@ -384,7 +385,6 @@ graphsnstuff <- function(x,B=1,PvalAIC="p",namex="x",bsCI=FALSE,alpha=0.05,print
   est[[paste0("PWM",varnm)]]           <- PWMx           <- PWM(x)
   
   EDF <- ecdf(x)
-  
   
   #LOMAX
   KS.stat <- NULL
@@ -405,59 +405,207 @@ graphsnstuff <- function(x,B=1,PvalAIC="p",namex="x",bsCI=FALSE,alpha=0.05,print
   
   
   if(bsCI==TRUE){
-    pb <- txtProgressBar(min = 0, max = B, initial = 0,style=3) 
     
-    b <- 1
     BS.stat <- array(dim=c(B,2,9))
+    
+    
+    
+    
+    #MLE
+    cat("\n1)MLE:\n")
+    pb <- txtProgressBar(min = 0, max = B, initial = 0,style=3) 
+    b <- 1
     while(b<=B){
-      xstar              <- sample(x,replace=TRUE)
-      MLExstar           <- try(MLE(xstar),silent=TRUE)
-      MLE.bxstar         <- try(MLE.b(xstar),silent=TRUE)
-      LMExstar           <- try(LME(xstar),silent=TRUE)
-      MDE.CvMxstar       <- try(MDE.CvM(xstar),silent=TRUE)
-      MDE.LSxstar        <- try(MDE.LS(xstar),silent=TRUE)
-      MDE.Phi.chisqxstar <- try(MDE.Phi.chisq(xstar),silent=TRUE)
-      MDE.Phi.tvxstar    <- try(MDE.Phi.tv(xstar),silent=TRUE)
-      MDE.Phi.klxstar    <- try(MDE.Phi.kl(xstar),silent=TRUE)
-      MMExstar           <- try(MME(xstar),silent=TRUE)
-
-      if(!any(is.character( MLExstar          ),
-              is.character( MLE.bxstar        ),
-              is.character( LMExstar          ),
-              is.character( MDE.CvMxstar      ),
-              is.character( MDE.LSxstar       ),
-              is.character( MDE.Phi.chisqxstar),
-              is.character( MDE.Phi.tvxstar   ),
-              is.character( MDE.Phi.klxstar   ),
-              is.character( MMExstar          )
-      )){
-        
-        BS.stat[b,,1]    <- unlist(MLExstar[c("beta","sigma")])          
-        BS.stat[b,,2]    <- unlist(MLE.bxstar[c("beta","sigma")])          
-        BS.stat[b,,3]    <- unlist(LMExstar[c("beta","sigma")])          
-        BS.stat[b,,4]    <- unlist(MDE.CvMxstar[c("beta","sigma")])          
-        BS.stat[b,,5]    <- unlist(MDE.LSxstar[c("beta","sigma")])          
-        BS.stat[b,,6]    <- unlist(MDE.Phi.chisqxstar[c("beta","sigma")])          
-        BS.stat[b,,7]    <- unlist(MDE.Phi.tvxstar[c("beta","sigma")])          
-        BS.stat[b,,8]    <- unlist(MDE.Phi.klxstar[c("beta","sigma")])          
-        BS.stat[b,,9]    <- unlist(MMExstar[c("beta","sigma")])          
-
-        b <- b+1
-        setTxtProgressBar(pb,b)
+      xstar     <- sort(rLomax(n, MLEx$beta, MLEx$sigma))
+      MLExstar  <- try(MLE(xstar),silent=TRUE)
+      CV.flag   <- (sqrt((n - 1)/n)*sd(xstar)/mean(xstar) < 1)
+      if(!any(is.character(MLExstar))){
+        if(!any(CV.flag,MLExstar[["returnCode"]] %in% c(3,4,5,6,7,9,100),
+                MLExstar["sigma"] < 0,MLExstar["beta"] < 0)){
+          BS.stat[b,,1] <- unlist(MLExstar[c("beta","sigma")])          
+          b <- b+1
+          setTxtProgressBar(pb,b)
+        }
       }
     }
     close(pb)
+
+    
+    #MLE.b
+    cat("\n2)MLE.b:\n")
+    pb <- txtProgressBar(min = 0, max = B, initial = 0,style=3) 
+    b <- 1
+    while(b<=B){
+      xstar      <- sort(rLomax(n, MLE.bx$beta, MLE.bx$sigma))
+      MLExstar   <- try(MLE(xstar),silent=TRUE)
+      MLE.bxstar <- try(MLE.b(xstar),silent=TRUE)
+      CV.flag    <- (sqrt((n - 1)/n)*sd(xstar)/mean(xstar) < 1)
+      if(!any(is.character(MLE.bxstar))){
+        if(!any(CV.flag,MLExstar[["returnCode"]] %in% c(3,4,5,6,7,9,100),
+                MLE.bxstar["sigma"] < 0,MLE.bxstar["beta"] < 0)){
+          BS.stat[b,,2]    <- unlist(MLE.bxstar[c("beta","sigma")])          
+          b <- b+1
+          setTxtProgressBar(pb,b)
+        }
+      }
+    }
+    close(pb)
+    
+
+    
+    #LME
+    cat("\n3)LME:\n")
+    pb <- txtProgressBar(min = 0, max = B, initial = 0,style=3) 
+    b <- 1
+    while(b<=B){
+      xstar              <- sort(rLomax(n, LMEx$beta, LMEx$sigma))
+      LMExstar           <- try(LME(xstar),silent=TRUE)
+      CV.flag <-  (sqrt((n - 1)/n)*sd(xstar)/mean(xstar) < 1)
+      if(!any(is.character( LMExstar))){
+        if(!any(CV.flag > 0,LMExstar["sigma"] < 0,LMExstar["beta"] < 0)){
+          BS.stat[b,,3]    <- unlist(LMExstar[c("beta","sigma")])          
+          b <- b+1
+          setTxtProgressBar(pb,b)
+        }
+      }
+    }
+    close(pb)
+
+    
+    #MDE.CVM
+    cat("\n4)MDE.CVM:\n")
+    pb <- txtProgressBar(min = 0, max = B, initial = 0,style=3) 
+    b <- 1
+    while(b<=B){
+      xstar              <- sort(rLomax(n, MDE.CvMx$beta, MDE.CvMx$sigma))
+      MDE.CvMxstar       <- try(MDE.CvM(xstar),silent=TRUE)
+      LMExstar           <- try(LME(xstar),silent=TRUE)
+      CV.flag <- (sqrt((n - 1)/n)*sd(xstar)/mean(xstar) < 1)
+      if(!any(is.character( LMExstar),is.character( MDE.CvMxstar))){
+        if(!any(CV.flag,LMExstar["sigma"] < 0,LMExstar["beta"] < 0,MDE.CvMxstar[["convergence"]] >0,
+                MDE.CvMxstar["sigma"] < 0,MDE.CvMxstar["beta"] < 0)){
+          BS.stat[b,,4]    <- unlist(MDE.CvMxstar[c("beta","sigma")])          
+          b <- b+1
+          setTxtProgressBar(pb,b)
+        }
+      }
+    }
+    close(pb)
+
+    #MDE.LS
+    cat("\n5)MDE.LS:\n")
+    pb <- txtProgressBar(min = 0, max = B, initial = 0,style=3) 
+    b <- 1
+    while(b<=B){
+      xstar              <- sort(rLomax(n, MDE.LSx$beta, MDE.LSx$sigma))
+      MDE.LSxstar        <- try(MDE.LS(xstar),silent=TRUE)
+      LMExstar           <- try(LME(xstar),silent=TRUE)
+      CV.flag           <- (sqrt((n - 1)/n)*sd(xstar)/mean(xstar) < 1)
+      if(!any(is.character(LMExstar),is.character(MDE.LSxstar))){
+        if(!any(CV.flag,LMExstar["sigma"] < 0,LMExstar["beta"] < 0,MDE.LSxstar[["convergence"]] >0,
+                MDE.LSxstar["sigma"] < 0,MDE.LSxstar["beta"] < 0)){
+          BS.stat[b,,5]    <- unlist(MDE.LSxstar[c("beta","sigma")])          
+          b <- b+1
+          setTxtProgressBar(pb,b)
+        }
+      }
+    }
+    close(pb)
+
+    #MDE.phi.chisq
+    cat("\n6)MDE.phi.chisq:\n")
+    pb <- txtProgressBar(min = 0, max = B, initial = 0,style=3) 
+    b <- 1
+    while(b<=B){
+      xstar              <- sort(rLomax(n, MDE.Phi.chisqx$beta, MDE.Phi.chisqx$sigma))
+      MDE.Phi.chisqxstar <- try(MDE.Phi.chisq(xstar),silent=TRUE)
+      LMExstar           <- try(LME(xstar),silent=TRUE)
+      CV.flag <-  (sqrt((n - 1)/n)*sd(xstar)/mean(xstar) < 1)
+      if(!any(is.character( LMExstar),is.character( MDE.Phi.chisqxstar))){
+        if(!any(CV.flag,LMExstar["sigma"] < 0,LMExstar["beta"] < 0,MDE.Phi.chisqxstar[["convergence"]] >0,
+                MDE.Phi.chisqxstar["sigma"] < 0,MDE.Phi.chisqxstar["beta"] < 0)){
+          BS.stat[b,,6]    <- unlist(MDE.Phi.chisqxstar[c("beta","sigma")])          
+          b <- b+1
+          setTxtProgressBar(pb,b)
+        }
+      }
+    }
+    close(pb)
+    
+    
+    
+    
+    #MDE.phi.tv
+    cat("\n7)MDE.phi.tv:\n")
+    pb <- txtProgressBar(min = 0, max = B, initial = 0,style=3) 
+    b <- 1
+    while(b<=B){
+      xstar              <- sort(rLomax(n, MDE.Phi.tvx$beta, MDE.Phi.tvx$sigma))
+      MDE.Phi.tvxstar <- try(MDE.Phi.tv(xstar),silent=TRUE)
+      LMExstar           <- try(LME(xstar),silent=TRUE)
+      CV.flag <- (sqrt((n - 1)/n)*sd(xstar)/mean(xstar) < 1)
+      if(!any(is.character( LMExstar),is.character( MDE.Phi.tvxstar))){
+        if(!any(CV.flag,LMExstar["sigma"] < 0,LMExstar["beta"] < 0,MDE.Phi.tvxstar[["convergence"]] >0,
+                MDE.Phi.tvxstar["sigma"] < 0,MDE.Phi.tvxstar["beta"] < 0)){
+          BS.stat[b,,7]    <- unlist(MDE.Phi.tvxstar[c("beta","sigma")])          
+          b <- b+1
+          setTxtProgressBar(pb,b)
+        }
+      }
+    }
+    close(pb)
+    
+    #MDE.phi.kl
+    cat("\n8)MDE.phi.kl:\n")
+    pb <- txtProgressBar(min = 0, max = B, initial = 0,style=3) 
+    b <- 1
+    while(b<=B){
+      xstar              <- sort(rLomax(n, MDE.Phi.klx$beta, MDE.Phi.klx$sigma))
+      MDE.Phi.klxstar    <- try(MDE.Phi.kl(xstar),silent=TRUE)
+      LMExstar           <- try(LME(xstar),silent=TRUE)
+      CV.flag <- (sqrt((n - 1)/n)*sd(xstar)/mean(xstar) < 1)
+      if(!any(is.character( LMExstar),is.character( MDE.Phi.klxstar))){
+        if(!any(CV.flag,LMExstar["sigma"] < 0,LMExstar["beta"] < 0,MDE.Phi.klxstar[["convergence"]] >0,
+                MDE.Phi.klxstar["sigma"] < 0,MDE.Phi.klxstar["beta"] < 0)){
+          BS.stat[b,,8]    <- unlist(MDE.Phi.klxstar[c("beta","sigma")])          
+          b <- b+1
+          setTxtProgressBar(pb,b)
+        }
+      }
+    }
+    close(pb)
+
+    #MME
+    cat("\n9)MME:\n")
+    pb <- txtProgressBar(min = 0, max = B, initial = 0,style=3) 
+    b <- 1
+    while(b<=B){
+      xstar              <- sort(rLomax(n, MMEx$beta, MMEx$sigma))
+      MMExstar           <- try(MME(xstar),silent=TRUE)
+      CV.flag <- (sqrt((n - 1)/n)*sd(xstar)/mean(xstar) < 1)
+      if(!any(is.character( LMExstar),is.character( MMExstar))){
+        if(!any(CV.flag,
+                MMExstar["sigma"] < 0,MMExstar["beta"] < 0)){
+          BS.stat[b,,9]    <- unlist(MMExstar[c("beta","sigma")])          
+          b <- b+1
+          setTxtProgressBar(pb,b)
+        }
+      }
+    }
+    close(pb)
+    
+    
     est1 <- data.frame(
-           MLE=           unlist(MLEx[c("beta","sigma")]),          
-           MLE.b=         unlist(MLE.bx[c("beta","sigma")]),
-           LME=           unlist(LMEx[c("beta","sigma")]),
-           MDE.CvM=       unlist(MDE.CvMx[c("beta","sigma")]),
-           MDE.LS=        unlist(MDE.LSx[c("beta","sigma")]),
-           MDE.Phi.chisq= unlist(MDE.Phi.chisqx[c("beta","sigma")]),
-           MDE.Phi.tv=    unlist(MDE.Phi.tvx[c("beta","sigma")]),
-           MDE.Phi.kl=    unlist(MDE.Phi.klx[c("beta","sigma")]),
-           MME=           unlist(MMEx[c("beta","sigma")])
-           )
+      MLE=           unlist(MLEx[c("beta","sigma")]),          
+      MLE.b=         unlist(MLE.bx[c("beta","sigma")]),
+      LME=           unlist(LMEx[c("beta","sigma")]),
+      MDE.CvM=       unlist(MDE.CvMx[c("beta","sigma")]),
+      MDE.LS=        unlist(MDE.LSx[c("beta","sigma")]),
+      MDE.Phi.chisq= unlist(MDE.Phi.chisqx[c("beta","sigma")]),
+      MDE.Phi.tv=    unlist(MDE.Phi.tvx[c("beta","sigma")]),
+      MDE.Phi.kl=    unlist(MDE.Phi.klx[c("beta","sigma")]),
+      MME=           unlist(MMEx[c("beta","sigma")])
+    )
     betaCIs  <- as.data.frame(lapply(data.frame(BS.stat[,1,]),sort))[c(floor((B+1)*(alpha/2)),floor((B+1)*(1-alpha/2))),]
     sigmaCIs <- as.data.frame(lapply(data.frame(BS.stat[,2,]),sort))[c(floor((B+1)*(alpha/2)),floor((B+1)*(1-alpha/2))),]
     
